@@ -15,6 +15,9 @@ AWS.config.update({
 const s3 = new AWS.S3();
 const bucketName = 'pado-test-bucket';
 
+// CloudFront 배포 도메인 이름
+const cloudFrontUrl = 'https://d3jjkndke92ugp.cloudfront.net'
+
 // CORS 설정
 app.use(cors());
 
@@ -55,14 +58,8 @@ app.get('/file-list', async (req, res) => {
 // 서명된 URL을 생성하는 GET 라우트
 app.get('/file-url/:key(*)', (req, res) => {
     const key = req.params.key;
-    const params = {
-        Bucket: bucketName,
-        Key: key,
-        Expires: 60
-    };
-
-    const url = s3.getSignedUrl('getObject', params);
-    console.log('Signed URL:', url); // Debugging log
+    const url = `${cloudFrontUrl}/${encodeURIComponent(key)}`;
+    console.log('CloudFront URL:', url); // Debugging log
     res.json({ url });
 });
 
