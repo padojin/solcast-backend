@@ -1,2 +1,0 @@
-accessKeyId: AKIATCKATHEC5S6GIL43
-secretAccessKey: 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
