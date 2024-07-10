@@ -5,7 +5,7 @@ const multer = require('multer');
 const multerS3 = require('multer-s3');
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
 // AWS 설정
 AWS.config.update({
@@ -13,10 +13,10 @@ AWS.config.update({
 });
 
 const s3 = new AWS.S3();
-const bucketName = 'pado-test-bucket';
+// const bucketName = 'pado-test-bucket';
 
 // CloudFront 배포 도메인 이름
-const cloudFrontUrl = 'https://d3jjkndke92ugp.cloudfront.net'
+// const cloudFrontUrl = 'https://d3jjkndke92ugp.cloudfront.net'
 
 // CORS 설정
 app.use(cors());
