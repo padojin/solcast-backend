@@ -6,10 +6,12 @@ const AWS = require('aws-sdk');
 const cors = require('cors');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
+const ffmpeg = require('fluent-ffmpeg');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const port = 3001;
-const mysql = require("mysql"); // mysql 모듈을 불러옵니다.
-
+const mysql = require("mysql");
 
 // AWS 설정
 AWS.config.update({
@@ -29,6 +31,13 @@ const connection = mysql.createConnection({
     database: "test_db"
 });
 
+connection.connect((err) => {
+    if (err) {
+        console.error('error connecting: ' + err.stack);
+        return;
+    }
+    console.log('connected as id ' + connection.threadId);
+});
 // CORS 설정
 // app.use(cors());
 app.use(cors({
@@ -54,7 +63,65 @@ app.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'File not uploaded' });
     }
-    res.status(200).json({ message: 'File uploaded successfully', file: req.file });
+    // 먼저 file_no의 최대값을 가져옵니다
+    connection.query('SELECT MAX(file_no) AS maxFileNo FROM tb_files', (error, results) => {
+        if (error) {
+            return res.status(500).json({ error: error.message });
+        }
+
+        let maxFileNo = results[0].maxFileNo;
+        const fileNo = maxFileNo ? maxFileNo + 1 : 1;
+    
+        const { originalname, location, key } = req.file;
+        const fileCode = "ENG"+"^"+ String(fileNo).padStart(4, "0"); // 파일코드 예시
+        const fileUrl = location;
+        const fileName = originalname;
+
+        connection.query('INSERT INTO tb_files (file_no,file_code, file_url, file_name, file_CDT) VALUES (?, ?, ?, ? ,NOW())', 
+            [fileNo,fileCode, fileUrl, fileName], 
+            (err, result) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file });
+            }
+        );
+        // 썸네일 생성
+        // const thumbnailKey = `thumbnails/${key.split('.')[0]}.png`;
+        // const thumbnailPath = `/tmp/${thumbnailKey}`;
+        // console.log(fileCode);
+        // ffmpeg(location)
+        //     .on('end', () => {
+        //         s3.upload({
+        //             Bucket: bucketName,
+        //             Key: thumbnailKey,
+        //             Body: fs.createReadStream(thumbnailPath),
+        //             ACL: 'public-read'
+        //         }, (err, data) => {
+        //             if (err) {
+        //                 console.error('Error uploading thumbnail:', err.message);
+        //                 return res.status(500).json({ error: err.message });
+        //             }
+
+        //             connection.query('INSERT INTO tb_files (file_no,file_code, file_url, file_name, file_CDT, thumbnail_url) VALUES (?, ?, ?, ?, NOW(), ?)', 
+        //                 [fileNo,fileCode, fileUrl, fileName, data.Location], 
+        //                 (err, result) => {
+        //                     if (err) {
+        //                         return res.status(500).json({ error: err.message });
+        //                     }
+        //                     fs.unlinkSync(thumbnailPath); // 임시 썸네일 파일 삭제
+        //                     res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file, thumbnail: data.Location });
+        //                 }
+        //             );
+        //         });
+        //     })
+        //     .screenshots({
+        //         timestamps: ['50%'],
+        //         filename: path.basename(thumbnailPath),
+        //         folder: path.dirname(thumbnailPath),
+        //         size: '320x240'
+        //     });
+    });
 });
 // S3에서 파일 목록을 가져오는 GET 라우트
 app.get('/file-list', async (req, res) => {
@@ -80,6 +147,7 @@ app.get('/file-url/:key(*)', (req, res) => {
     const url = s3.getSignedUrl('getObject', params);
     res.json({ url });
 });
+
 //--------------------------------------------------------------- 게시물 관련
 // 게시판 저장을 위한 POST 라우트
 app.post('/board', (req, res) => {
@@ -100,7 +168,15 @@ app.post('/board', (req, res) => {
             boardMemo: boardMemo,
             fileCode: fileCode
         };
-
+        // connection.query('INSERT INTO tb_files (file_no,file_code, file_url, file_name, file_CDT) VALUES (?, ?, ?, ? ,NOW())', 
+        //     [fileNo,fileCode, fileUrl, fileName], 
+        //     (err, result) => {
+        //         if (err) {
+        //             return res.status(500).json({ error: err.message });
+        //         }
+        //         res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file });
+        //     }
+        // );
         connection.query(`INSERT INTO tb_board (board_no, board_title, board_teacher, board_memo, file_code)
             VALUES (?, ?, ?, ?, ?)`, [boardNo, boardTitle, boardTeacher, boardMemo, fileCode], function (error, result) {
             if (error) {
@@ -110,24 +186,29 @@ app.post('/board', (req, res) => {
         });
     });
 });
+// Board list API
 app.get('/board/list', function (req, res, next) {
-    // 라우터에서 에러가 발생하면 Express가 알아서 이를 잡아서 처리합니다.
-    connection.connect(function(err) {
+    connection.query(`SELECT B.board_no, B.board_title, B.board_teacher, B.board_memo,
+                             F.file_url, F.file_code, F.file_name, F.thumbnail_url
+                        FROM tb_board B
+                        LEFT OUTER JOIN tb_files F
+                          ON B.file_code = F.file_code`, function(err, rows, fields) {
         if (err) {
-            throw err; // 접속에 실패하면 에러를 throw 합니다.
-        } else {
-            // 접속시 쿼리를 보냅니다.
-            connection.query("SELECT * FROM tb_board", function(err, rows, fields) {
-            console.log(rows); // 결과를 출력합니다!
-            });
+            return res.status(500).json({ error: err.message });
         }
+        res.json(rows); // 결과를 JSON 형태로 반환합니다.
     });
 });
 app.get('/board/detail/:boardNo', function (req, res, next) {
     const boardNo = req.query.boardNo;  // req.body 대신 req.query를 사용합니다.
     
     // 데이터베이스 연결을 처리합니다.
-    connection.query(`SELECT * FROM tb_board WHERE board_no = ?`, [boardNo], function(err, results, fields) {
+    connection.query(`SELECT B.board_no, B.board_title, B.board_teacher, B.board_memo,
+		                     F.file_url, F.file_code, F.file_name
+                        FROM tb_board B
+                        LEFT OUTER JOIN tb_files F
+                          ON B.file_code = F.file_code
+                       WHERE B.board_no = ?`, [boardNo], function(err, results, fields) {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
