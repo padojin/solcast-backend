@@ -6,12 +6,12 @@ const AWS = require('aws-sdk');
 const cors = require('cors');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
-// const ffmpeg = require('fluent-ffmpeg');
-const fs = require('fs');
 const path = require('path');
 const app = express();
 const port = 3001;
 const mysql = require("mysql2");
+// const fs = require('fs');
+// const ffmpeg = require('fluent-ffmpeg');
 // var multiparty = require('multiparty');
 // var thumb = require('node-thumbnail').thumb;
 
@@ -35,14 +35,6 @@ const connection = mysql.createConnection({
     default_authentication_plugin:`caching_sha2_password`,
     database: `test_db`
 });
-// // RDS Console 에서 본인이 설정한 값을 입력해주세요.
-// const connection = mysql.createConnection({
-//     host: "rds-public-imsi.ch6kc0iw0q06.ap-northeast-2.rds.amazonaws.com",
-//     port: '3306',
-//     user: "user_1",
-//     password: "1q2w3e4r5t6y7u8i9o0p!",
-//     database: "test_db"
-// });
 
 connection.connect((err) => {
     if (err) {
@@ -52,10 +44,7 @@ connection.connect((err) => {
     console.log('connected as id ' + connection.threadId);
 });
 // CORS 설정
-// app.use(cors());
-app.use(cors({
-    origin: 'http://localhost:8080'
-}));
+app.use(cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
