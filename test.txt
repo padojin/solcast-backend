@@ -1,0 +1,15 @@
+INSERT INTO tb_main ( main_no, main_ctgy, main_title, main_author, main_company)
+ VALUES (?,?,?,?,?)
+
+INSERT INTO tb_files (file_no , file_code, file_url , thumbnail_url , file_name, file_CDT) VALUES ()
+INSERT INTO tb_user (user_no , user_code , user_id   , user_psword ,user_name  , user_CDT  , main_company)
+ VALUES ()
+    connection.query(`SELECT B.board_no, B.board_title, B.board_teacher, B.board_memo,
+                             F.file_url, F.file_code, F.file_name, F.thumbnail_url
+                        FROM tb_board B
+                        LEFT OUTER JOIN tb_files F
+                          ON B.file_code = F.file_code
+    //                     LEFT OUTER JOIN tb_user U
+    //                       ON U.tb_user = B.main_company
+    //                     LEFT OUTER JOIN tb_main M
+    //                       ON M.main_ctgy = B.main_ctgy`, function(err, rows, fields) {

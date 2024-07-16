@@ -6,12 +6,14 @@ const AWS = require('aws-sdk');
 const cors = require('cors');
 const multer = require('multer');
 const multerS3 = require('multer-s3');
-const ffmpeg = require('fluent-ffmpeg');
+// const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
 const app = express();
 const port = 3001;
 const mysql = require("mysql");
+// var multiparty = require('multiparty');
+// var thumb = require('node-thumbnail').thumb;
 
 // AWS 설정
 AWS.config.update({
@@ -19,6 +21,7 @@ AWS.config.update({
 });
 
 const s3 = new AWS.S3();
+// const bucketName = 'solcast-frontend-bucket';
 const bucketName = 'solcast-test-bucket123';
 
 // 커넥션을 정의합니다.
@@ -86,7 +89,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
                 res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file });
             }
         );
-        // 썸네일 생성
+        //// 썸네일 생성
         // const thumbnailKey = `thumbnails/${key.split('.')[0]}.png`;
         // const thumbnailPath = `/tmp/${thumbnailKey}`;
         // console.log(fileCode);
@@ -148,6 +151,73 @@ app.get('/file-url/:key(*)', (req, res) => {
     res.json({ url });
 });
 
+//--------------------------------------------------------------- 메인게시물 관련
+// 게시판 저장을 위한 POST 라우트
+app.post('/main', (req, res) => {
+    const { mainTitle, mainAuthor, mainCtgy } = req.body;
+    // const { mainTitle, mainAuthor, mainCtgy, mainCompany } = req.body;
+    if (!mainTitle || !mainAuthor || !mainCtgy) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const mainCompany = "testCom";
+    // 먼저 mainNo의 최대값을 가져옵니다
+    connection.query('SELECT MAX(main_no) AS maxmainNo FROM tb_main', (error, results) => {
+        if (error) {
+            console.error('Database query error:', error);
+            return res.status(500).json({ error: error.message });
+        }
+        let maxmainNo = results[0].maxmainNo;
+        let mainNo = maxmainNo ? maxmainNo + 1 : 1;
+        const params = {
+            mainNo: mainNo,
+            mainTitle: mainTitle,
+            mainAuthor: mainAuthor,
+            mainCtgy: mainCtgy,
+            mainCompany:mainCompany
+        };
+        connection.query(`INSERT INTO tb_main (main_no, main_ctgy, main_title, main_author,main_company)
+            VALUES (?, ?, ?, ?, ?)`, [mainNo,mainCtgy, mainTitle, mainAuthor, mainCompany], function (error, result) {
+            if (error) {
+                return res.status(500).json({ error: error.message });
+            }
+            res.status(200).json({ message: 'main entry created successfully', mainNo:mainNo });
+        });
+    });
+});
+// main list API
+app.get('/main/list', function (req, res, next) {
+    connection.query(`SELECT main_no, main_ctgy, main_title, main_author, main_company
+                        FROM tb_main`, function(err, rows, fields) {
+    // connection.query(`SELECT M.main_no, M.main_title, M.main_author, M.main_ctgy, M.main_company,
+    //                     FROM tb_main M
+    //                     LEFT OUTER JOIN tb_user U
+    //                       ON U.tb_user = B.main_company`, function(err, rows, fields) {
+    //                     LEFT OUTER JOIN tb_board B
+    //                       ON M.main_ctgy = B.main_ctgy`, function(err, rows, fields) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows); // 결과를 JSON 형태로 반환합니다.
+    });
+});
+app.get('/main/detail/:mainNo', function (req, res, next) {
+    const mainNo = req.query.mainNo;  // req.body 대신 req.query를 사용합니다.
+    
+    // 데이터베이스 연결을 처리합니다.
+    connection.query(`SELECT main_no, main_ctgy, main_title, main_author, main_company
+                        FROM tb_main
+                       WHERE main_no = ?`, [mainNo], function(err, results, fields) {
+            //     connection.query(`SELECT M.main_no, M.main_title, M.main_author, M.main_ctgy, M.main_company
+            //                             FROM tb_main M 
+            //                     LEFT OUTER JOIN tb_user U
+            //                       ON U.main_company = B.main_company
+            //                    WHERE main_no = ?`, [mainNo], function(err, results, fields) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(results[0]);  // 결과를 JSON 형태로 반환합니다.
+    });
+});
 //--------------------------------------------------------------- 게시물 관련
 // 게시판 저장을 위한 POST 라우트
 app.post('/board', (req, res) => {
@@ -214,27 +284,6 @@ app.get('/board/detail/:boardNo', function (req, res, next) {
         }
         res.json(results[0]);  // 결과를 JSON 형태로 반환합니다.
     });
-});
-app.post("/posts", (req, res) => {  // 데이터 받아서 결과 전송
-    const title = req.body.title;
-    const body = req.body.body;
-    console.log(body);
-    console.log(title);
-    const sendData = { isSuccess: "" };
-    
-    if (title && body) {
-        connection.query('INSERT INTO tb_board (board_no,board_title, board_memo) VALUES(1,?,?)', [title, body], function (error, data) {
-            if (error) throw error;
-            req.session.save(function () {                        
-                sendData.isSuccess = "True"
-                res.send(sendData);
-            });
-        });    
-    } else {
-        sendData.isSuccess = "게시물을 입력하세요!"
-        res.send(sendData);  
-    }
-    
 });
 //--------------------------------------------------------------- 로그인 관련
 app.get('/authcheck', (req, res) => {     
