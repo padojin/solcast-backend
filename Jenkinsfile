@@ -44,7 +44,7 @@ pipeline {
                     credentials: 'awsAccessKey', 
                     deploymentConfig: 'CodeDeployDefault.OneAtATime', 
                     deploymentGroupAppspec: false, 
-                    deploymentGroupName: 'solcast-was-deploy', 
+                    deploymentGroupName: 'solcast-backend-test', 
                     excludes: '', 
                     iamRoleArn: '', 
                     includes: '**', 
