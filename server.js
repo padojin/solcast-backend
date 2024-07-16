@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const app = express();
 const port = 3001;
-const mysql = require("mysql");
+const mysql = require("mysql2");
 // var multiparty = require('multiparty');
 // var thumb = require('node-thumbnail').thumb;
 
@@ -22,17 +22,27 @@ AWS.config.update({
 
 const s3 = new AWS.S3();
 // const bucketName = 'solcast-frontend-bucket';
-const bucketName = 'solcast-test-bucket123';
+// const bucketName = 'solcast-test-bucket123';
+const bucketName = 'solcast-backend-bucket';
 
 // 커넥션을 정의합니다.
 // RDS Console 에서 본인이 설정한 값을 입력해주세요.
 const connection = mysql.createConnection({
-    host: "rds-public-imsi.ch6kc0iw0q06.ap-northeast-2.rds.amazonaws.com",
-    port: '3306',
-    user: "user_1",
-    password: "1q2w3e4r5t6y7u8i9o0p!",
-    database: "test_db"
+    host: `rds-public-imsi.ch6kc0iw0q06.ap-northeast-2.rds.amazonaws.com`,
+    port: `3306`,
+    user: `admin`,
+    password: `1q2w3e4r5t6y7u8i9o0p!`,
+    default_authentication_plugin:`caching_sha2_password`,
+    database: `test_db`
 });
+// // RDS Console 에서 본인이 설정한 값을 입력해주세요.
+// const connection = mysql.createConnection({
+//     host: "rds-public-imsi.ch6kc0iw0q06.ap-northeast-2.rds.amazonaws.com",
+//     port: '3306',
+//     user: "user_1",
+//     password: "1q2w3e4r5t6y7u8i9o0p!",
+//     database: "test_db"
+// });
 
 connection.connect((err) => {
     if (err) {
