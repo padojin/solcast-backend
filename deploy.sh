@@ -20,6 +20,7 @@ if ! command -v node &> /dev/null
 then
     echo "Node.js not found, installing..." >> $LOG_FILE
     curl -sL https://rpm.nodesource.com/setup_18.x | sudo -E bash - >> $LOG_FILE
+    sudo rpm --import https://rpm.nodesource.com/gpgkey/nodesource.gpg.key >> $LOG_FILE
     sudo yum install -y nodejs >> $LOG_FILE
 else
     echo "Node.js found: $(node -v)" >> $LOG_FILE
