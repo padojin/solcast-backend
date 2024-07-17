@@ -22,7 +22,6 @@ AWS.config.update({
     region: 'ap-northeast-2',
  });
 const s3 = new AWS.S3();
-// const bucketName = 'solcast-test-bucket123';
 const bucketName = 'solcast-backend-bucket';
 
 // 커넥션을 정의합니다.
@@ -56,7 +55,7 @@ const upload = multer({
         key: (req, file, cb) => {
             cb(null, Date.now().toString() + '-' + file.originalname);
         }
-    })
+    }) 
 });
 
 // 파일 업로드를 위한 POST 라우트
@@ -74,7 +73,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
         const fileNo = maxFileNo ? maxFileNo + 1 : 1;
     
         const { originalname, location, key } = req.file;
-        const fileCode = "ENG"+"^"+ String(fileNo).padStart(4, "0"); // 파일코드 예시
+        const fileCode = "XXX"+"^"+ String(fileNo).padStart(4, "0"); // 파일코드 예시
         const fileUrl = location;
         const fileName = originalname;
 
@@ -226,7 +225,6 @@ app.post('/board', (req, res) => {
         if (error) {
             return res.status(500).json({ error: error.message });
         }
-
         let maxBoardNo = results[0].maxBoardNo;
         let boardNo = maxBoardNo ? maxBoardNo + 1 : 1;
         const params = {
@@ -245,13 +243,32 @@ app.post('/board', (req, res) => {
         //         res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file });
         //     }
         // );
-        connection.query(`INSERT INTO tb_board (board_no, board_title, board_teacher, board_memo, file_code)
-            VALUES (?, ?, ?, ?, ?)`, [boardNo, boardTitle, boardTeacher, boardMemo, fileCode], function (error, result) {
+        //파일이 있으면 추가 해준다.
+        connection.query(`SELECT RIGHT(file_code,4) AS resFileCode,file_no AS resFileNo FROM tb_files WHERE file_code LIKE ?`, ["%XXX%"],(error, results) => {
             if (error) {
                 return res.status(500).json({ error: error.message });
             }
-            res.status(200).json({ message: 'Board entry created successfully', boardNo:boardNo });
+            let resFileCode = results[0].resFileCode;
+            let resFileNo = results[0].resFileNo;
+            let fileCode = null;
+            if(!fileCode){
+                fileCode = "ENG"+"^"+ resFileCode; // 파일코드 예시
+                connection.query(`UPDATE tb_files SET file_code=? WHERE file_no=?`, [resFileCode, resFileNo], function (error, result) {
+                    if (error) {
+                        return res.status(500).json({ error: error.message });
+                    }
+                });
+            }
+            console.log(fileCode);
+            connection.query(`INSERT INTO tb_board (board_no, board_title, board_teacher, board_memo, file_code,board_CDT)
+                              VALUES (?, ?, ?, ?, ?,NOW())`, [boardNo, boardTitle, boardTeacher, boardMemo, fileCode], function (error, result) {
+                if (error) {
+                    return res.status(500).json({ error: error.message });
+                }
+                res.status(200).json({ message: 'Board entry created successfully', boardNo:boardNo });
+            });
         });
+
     });
 });
 // Board list API
