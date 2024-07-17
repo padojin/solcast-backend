@@ -29,7 +29,7 @@ pipeline {
       stage('Upload S3') {
           steps {
               echo 'Upload S3'
-              withAWS(credentials: '4b19d56f-8b5a-4249-a934-b669519977e7') {
+              withAWS(credentials: 'cf4bc89a-8b0d-4150-a678-f6f5f89f8327') {
                   s3Upload(file: 'backend.zip', bucket: 'solcast-backend-bucket', path: "${S3PATH}/backend.zip")
               }
           }
@@ -44,7 +44,7 @@ pipeline {
                     credentials: 'awsAccessKey', 
                     deploymentConfig: 'CodeDeployDefault.OneAtATime', 
                     deploymentGroupAppspec: false, 
-                    deploymentGroupName: 'solcast-backend-test', 
+                    deploymentGroupName: 'solcast-was-deploy', 
                     excludes: '', 
                     iamRoleArn: '', 
                     includes: '**', 
