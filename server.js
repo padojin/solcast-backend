@@ -253,7 +253,7 @@ app.post('/board', (req, res) => {
             let fileCode = null;
             if(!fileCode){
                 fileCode = "ENG"+"^"+ resFileCode; // 파일코드 예시
-                connection.query(`UPDATE tb_files SET file_code=? WHERE file_no=?`, [resFileCode, resFileNo], function (error, result) {
+                connection.query(`UPDATE tb_files SET file_code=? WHERE file_no=?`, [fileCode, resFileNo], function (error, result) {
                     if (error) {
                         return res.status(500).json({ error: error.message });
                     }
