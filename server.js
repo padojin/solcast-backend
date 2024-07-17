@@ -1,3 +1,4 @@
+/* server.js */
 // 1차 백엔드 기반으로 모델링처리를 하지 않은 백엔드 입니다. 
 //결합성이 높아 가용성이 좋지 않아 수정이 필요합니다.
 //by.eunji v.1.0 
@@ -14,14 +15,13 @@ const mysql = require("mysql2");
 // const ffmpeg = require('fluent-ffmpeg');
 // var multiparty = require('multiparty');
 // var thumb = require('node-thumbnail').thumb;
-
 // AWS 설정
 AWS.config.update({
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
     region: 'ap-northeast-2',
-});
-
+ });
 const s3 = new AWS.S3();
-// const bucketName = 'solcast-frontend-bucket';
 // const bucketName = 'solcast-test-bucket123';
 const bucketName = 'solcast-backend-bucket';
 
@@ -35,7 +35,6 @@ const connection = mysql.createConnection({
     default_authentication_plugin:`caching_sha2_password`,
     database: `test_db`
 });
-
 connection.connect((err) => {
     if (err) {
         console.error('error connecting: ' + err.stack);
