@@ -50,6 +50,7 @@ app.use(express.urlencoded({ extended: true }));
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK')
+});
 //
 //--------------------------------------------------------------- 파일 관련
 // 파일 업로드를 처리할 multer 설정
@@ -239,15 +240,6 @@ app.post('/board', (req, res) => {
             boardMemo: boardMemo,
             fileCode: fileCode
         };
-        // connection.query('INSERT INTO tb_files (file_no,file_code, file_url, file_name, file_CDT) VALUES (?, ?, ?, ? ,NOW())', 
-        //     [fileNo,fileCode, fileUrl, fileName], 
-        //     (err, result) => {
-        //         if (err) {
-        //             return res.status(500).json({ error: err.message });
-        //         }
-        //         res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file });
-        //     }
-        // );
         //파일이 있으면 추가 해준다.
         connection.query(`SELECT RIGHT(file_code,4) AS resFileCode,file_no AS resFileNo FROM tb_files WHERE file_code LIKE ?`, ["%XXX%"],(error, results) => {
             if (error) {
