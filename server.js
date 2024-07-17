@@ -46,6 +46,11 @@ app.use(cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('OK')
+//
 //--------------------------------------------------------------- 파일 관련
 // 파일 업로드를 처리할 multer 설정
 const upload = multer({
