@@ -4,6 +4,7 @@ pipeline {
    environment {
        S3PATH = "${env.JOB_NAME}"
        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+       s3-secret-access-key = credentials('s3-secret-access-key')
    }
    tools {
       nodejs "NodeJS 20.14.0"
@@ -20,6 +21,15 @@ pipeline {
           steps {
               sh 'npm ci'
           }
+      }
+
+      stage('Create .env File'){
+         steps {
+            script {
+               writeFile file: '.env', text: '''S3_ACCESS_KEY_ID = AKIA5FTZBNGAFEWVIVUE
+               S3_SECRET_ACCESS_KEY = s3-secret-access-key'''
+            }
+         }
       }
       stage('Create Zip Archive') {
           steps {
