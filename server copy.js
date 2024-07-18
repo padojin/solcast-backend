@@ -2,7 +2,6 @@
 // 1차 백엔드 기반으로 모델링처리를 하지 않은 백엔드 입니다. 
 //결합성이 높아 가용성이 좋지 않아 수정이 필요합니다.
 //by.eunji v.1.0 
-require('dotenv').config();
 const express = require('express');
 const AWS = require('aws-sdk');
 const cors = require('cors');
@@ -12,20 +11,21 @@ const path = require('path');
 const app = express();
 const port = 3001;
 const mysql = require("mysql2");
-const fs = require('fs');
+// const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
+// var multiparty = require('multiparty');
+// var thumb = require('node-thumbnail').thumb;
 
 // AWS 설정
 AWS.config.update({
     accessKeyId: process.env.S3_ACCESS_KEY_ID,
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-    region: process.env.S3_REGION,
+    region: 'ap-northeast-2',
  });
 const s3 = new AWS.S3();
 const inputBucketName = 'solcast-vod-input';
 const outputBucketName = 'solcast-vod-output';
-// const bucketName = 'solcast-backend-bucket';
-
+// const bucketName = 'solcast-backend-bucket';solcast-vod-input
 
 // 커넥션을 정의합니다.
 // RDS Console 에서 본인이 설정한 값을 입력해주세요.
@@ -67,21 +67,6 @@ const upload = multer({
     }) 
 });
 
-// 썸네일 생성 함수
-const generateThumbnail = (inputPath, outputPath) => {
-    return new Promise((resolve, reject) => {
-        ffmpeg(inputPath)
-            .on('end', () => resolve())
-            .on('error', (err) => reject(err))
-            .screenshots({
-                timestamps: ['50%'],
-                filename: path.basename(outputPath),
-                folder: path.dirname(outputPath),
-                size: '320x240'
-            });
-    });
-};
-
 // 파일 업로드를 위한 POST 라우트
 app.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
@@ -90,7 +75,6 @@ app.post('/upload', upload.single('file'), (req, res) => {
     // 먼저 file_no의 최대값을 가져옵니다
     connection.query('SELECT MAX(file_no) AS maxFileNo FROM tb_files', (error, results) => {
         if (error) {
-            console.error('Error querying max file_no:', error);
             return res.status(500).json({ error: error.message });
         }
 
@@ -102,39 +86,64 @@ app.post('/upload', upload.single('file'), (req, res) => {
         const fileUrl = location;
         const fileName = originalname;
 
-        const thumbnailKey = `thumbnails/${key.split('.')[0]}.png`;
-        const thumbnailPath = `/tmp/${thumbnailKey}`;
+        connection.query('INSERT INTO tb_files (file_no,file_code, file_url, file_name, file_CDT) VALUES (?, ?, ?, ? ,NOW())', 
+            [fileNo,fileCode, fileUrl, fileName], 
+            (err, result) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+                res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file });
+            }
+        );
+        //// 썸네일 생성
+        // const thumbnailKey = `thumbnails/${key.split('.')[0]}.png`;
+        // const thumbnailPath = `/tmp/${thumbnailKey}`;
+        // console.log(fileCode);
+        // ffmpeg(location)
+        //     .on('end', () => {
+        //         s3.upload({
+        //             Bucket: bucketName,
+        //             Key: thumbnailKey,
+        //             Body: fs.createReadStream(thumbnailPath),
+        //             ACL: 'public-read'
+        //         }, (err, data) => {
+        //             if (err) {
+        //                 console.error('Error uploading thumbnail:', err.message);
+        //                 return res.status(500).json({ error: err.message });
+        //             }
 
-        generateThumbnail(location, thumbnailPath)
-            .then(() => {
-                const fileContent = fs.readFileSync(thumbnailPath);
-                s3.upload({
-                    Bucket: outputBucketName,
-                    Key: thumbnailKey,
-                    Body: fileContent,
-                    ACL: 'public-read'
-                }, (err, data) => {
-                    if (err) {
-                        return res.status(500).json({ error: err.message });
-                    }
-
-                    connection.query('INSERT INTO tb_files (file_no, file_code, file_url, file_name, file_CDT, thumbnail_url) VALUES (?, ?, ?, ?, NOW(), ?)', 
-                        [fileNo, fileCode, fileUrl, fileName, data.Location], 
-                        (err, result) => {
-                            if (err) {
-                                return res.status(500).json({ error: err.message });
-                            }
-                            fs.unlinkSync(thumbnailPath); // 임시 썸네일 파일 삭제
-                            res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file, thumbnail: data.Location });
-                        }
-                    );
-                });
-            })
-            .catch(err => {
-                res.status(500).json({ error: err.message });
-            });
+        //             connection.query('INSERT INTO tb_files (file_no,file_code, file_url, file_name, file_CDT, thumbnail_url) VALUES (?, ?, ?, ?, NOW(), ?)', 
+        //                 [fileNo,fileCode, fileUrl, fileName, data.Location], 
+        //                 (err, result) => {
+        //                     if (err) {
+        //                         return res.status(500).json({ error: err.message });
+        //                     }
+        //                     fs.unlinkSync(thumbnailPath); // 임시 썸네일 파일 삭제
+        //                     res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file, thumbnail: data.Location });
+        //                 }
+        //             );
+        //         });
+        //     })
+        //     .screenshots({
+        //         timestamps: ['50%'],
+        //         filename: path.basename(thumbnailPath),
+        //         folder: path.dirname(thumbnailPath),
+        //         size: '320x240'
+        //     });
     });
 });
+// // S3에서 파일 목록을 가져오는 GET 라우트
+// app.get('/file-list', async (req, res) => {
+//     try {
+//         const data = await s3.listObjectsV2({ Bucket: bucketName }).promise();
+//         const objectLists = data.Contents.map((item) => item.Key);
+//         res.json(objectLists);
+//     } catch (error) {
+//         console.error('Error listing files:', error);
+//         res.status(500).json({ error: error.message });
+//     }
+// });
+
 // 서명된 URL을 생성하는 GET 라우트
 app.get('/file-url/:key(*)', (req, res) => {
     const key = req.params.key;
@@ -147,20 +156,53 @@ app.get('/file-url/:key(*)', (req, res) => {
     const url = s3.getSignedUrl('getObject', params);
     res.json({ url });
 });
-// 동영상 URL을 반환하는 라우트
-app.get('/get-video-url/:fileCode', (req, res) => {
-    const fileCode = req.params.fileCode;
-    connection.query('SELECT file_url FROM tb_files WHERE file_code = ?', [fileCode], (error, results) => {
-        if (error) {
-            return res.status(500).json({ error: error.message });
-        }
-        if (results.length > 0) {
-            res.json({ url: results[0].file_url });
-        } else {
-            res.status(404).json({ error: 'File not found' });
-        }
+const convertVideo = (inputPath, outputPath) => {
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .output(outputPath)
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .run();
     });
-});
+  };
+  
+  app.post('/process', async (req, res) => {
+    const inputPath = 'path/to/uploaded/video';
+    const outputPath = 'path/to/converted/video.mp4';
+  
+    try {
+      await convertVideo(inputPath, outputPath);
+  
+      const fileContent = fs.readFileSync(outputPath);
+      const params = {
+        Bucket: 'solcast-vod-output',
+        Key: path.basename(outputPath),
+        Body: fileContent,
+      };
+  
+      s3.upload(params, (err, data) => {
+        if (err) {
+          return res.status(500).send(err);
+        }
+        res.status(200).send(`File processed and uploaded successfully. ${data.Location}`);
+      });
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  });
+  app.get('/get-video-url', (req, res) => {
+    const params = {
+      Bucket: 'solcast-vod-output',
+      Key: 'path/to/converted/video.mp4',
+    };
+  
+    s3.getSignedUrl('getObject', params, (err, url) => {
+      if (err) {
+        return res.status(500).send(err);
+      }
+      res.status(200).json({ url });
+    });
+  });
 //--------------------------------------------------------------- 메인게시물 관련
 // 게시판 저장을 위한 POST 라우트
 app.post('/main', (req, res) => {
