@@ -26,8 +26,7 @@ pipeline {
       stage('Create .env File'){
          steps {
             script {
-               writeFile file: '.env', text: '''S3_ACCESS_KEY_ID = AKIA5FTZBNGAFEWVIVUE
-               S3_SECRET_ACCESS_KEY = s3_secret_access_key'''
+               writeFile file: '.env', text: '''S3_ACCESS_KEY_ID = AKIA5FTZBNGAFEWVIVUE\nS3_SECRET_ACCESS_KEY = s3_secret_access_key'''
             }
          }
       }
@@ -52,7 +51,7 @@ pipeline {
                     awsAccessKey: 'AKIA5FTZBNGAD22XVD4M', 
                     awsSecretKey: AWS_SECRET_ACCESS_KEY, 
                     credentials: 'awsAccessKey', 
-                    deploymentConfig: 'CodeDeployDefault.OneAtATime', 
+                    deploymentConfig: 'CodeDeployDefault.AllAtOnce', 
                     deploymentGroupAppspec: false, 
                     deploymentGroupName: 'solcast-was-deploy', 
                     excludes: '', 
