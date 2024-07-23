@@ -303,7 +303,7 @@ app.get('/board/detail/:boardNo', function (req, res, next) {
         }
         res.json(results[0]);  // 결과를 JSON 형태로 반환합니다.
     });
-});
+}); 
 //--------------------------------------------------------------- 로그인 관련
 app.get('/authcheck', (req, res) => {     
     const sendData = { isLogin: "" };
