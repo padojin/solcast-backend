@@ -57,10 +57,13 @@ app.get('/health', (req, res) => {
 //
 //--------------------------------------------------------------- 파일 관련
 // 파일 업로드를 처리할 multer 설정
+// const filePath =`/vod/dev/mp4/1/solcast-admin/`;
+// const filePath =`/vod/dev/mp4/1/solcast-admin/${file.originalname}`;
 const upload = multer({
     storage: multerS3({
         s3: s3,
         bucket: inputBucketName,
+        // path: filePath,
         key: (req, file, cb) => {
             cb(null, Date.now().toString() + '-' + file.originalname);
         }
@@ -101,10 +104,10 @@ app.post('/upload', upload.single('file'), (req, res) => {
         const fileCode = "XXXX"+ String(fileNo).padStart(4, "0"); // 파일코드 예시
         const fileUrl = location;
         const fileName = originalname;
-
+        console.log(fileName);
         const thumbnailKey = `thumbnails/${key.split('.')[0]}.png`;
         const thumbnailPath = `/tmp/${thumbnailKey}`;
-
+        console.log(thumbnailPath);
         generateThumbnail(location, thumbnailPath)
             .then(() => {
                 const fileContent = fs.readFileSync(thumbnailPath);
