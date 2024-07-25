@@ -14,6 +14,30 @@ const port = 3001;
 const mysql = require("mysql2");
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
+const { createServer } = require('http');
+
+const WebSocket = require('ws');
+
+app.use(express.static(path.join(__dirname, '/public')));
+
+const server = createServer(app);
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', function (ws) {
+  const id = setInterval(function () {
+    ws.send(JSON.stringify(process.memoryUsage()), function () {
+      //
+      // Ignoring errors.
+      //
+    });
+  }, 100);
+  console.log('started client interval');
+
+  ws.on('close', function () {
+    console.log('stopping client interval');
+    clearInterval(id);
+  });
+});
 
 // AWS 설정
 AWS.config.update({
@@ -89,54 +113,56 @@ const generateThumbnail = (inputPath, outputPath) => {
 app.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'File not uploaded' });
-    }
-    // 먼저 file_no의 최대값을 가져옵니다
-    connection.query('SELECT MAX(file_no) AS maxFileNo FROM tb_files', (error, results) => {
-        if (error) {
-            console.error('Error querying max file_no:', error);
-            return res.status(500).json({ error: error.message });
-        }
+    }else{
 
-        let maxFileNo = results[0].maxFileNo;
-        const fileNo = maxFileNo ? maxFileNo + 1 : 1;
+        // 먼저 file_no의 최대값을 가져옵니다
+        connection.query('SELECT MAX(file_no) AS maxFileNo FROM tb_files', (error, results) => {
+            if (error) {
+                console.error('Error querying max file_no:', error);
+                return res.status(500).json({ error: error.message });
+            }
     
-        const { originalname, location, key } = req.file;
-        const fileCode = "XXXX"+ String(fileNo).padStart(4, "0"); // 파일코드 예시
-        const fileUrl = location;
-        const fileName = originalname;
-        console.log(fileName);
-        const thumbnailKey = `thumbnails/${key.split('.')[0]}.png`;
-        const thumbnailPath = `/tmp/${thumbnailKey}`;
-        console.log(thumbnailPath);
-        generateThumbnail(location, thumbnailPath)
-            .then(() => {
-                const fileContent = fs.readFileSync(thumbnailPath);
-                s3.upload({
-                    Bucket: outputBucketName,
-                    Key: thumbnailKey,
-                    Body: fileContent,
-                    ACL: 'public-read'
-                }, (err, data) => {
-                    if (err) {
-                        return res.status(500).json({ error: err.message });
-                    }
-
-                    connection.query('INSERT INTO tb_files (file_no, file_code, file_url, file_name, file_CDT, thumbnail_url) VALUES (?, ?, ?, ?, NOW(), ?)', 
-                        [fileNo, fileCode, fileUrl, fileName, data.Location], 
-                        (err, result) => {
-                            if (err) {
-                                return res.status(500).json({ error: err.message });
-                            }
-                            fs.unlinkSync(thumbnailPath); // 임시 썸네일 파일 삭제
-                            res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file, thumbnail: data.Location });
+            let maxFileNo = results[0].maxFileNo;
+            const fileNo = maxFileNo ? maxFileNo + 1 : 1;
+        
+            const { originalname, location, key } = req.file;
+            const fileCode = "XXXX"+ String(fileNo).padStart(4, "0"); // 파일코드 예시
+            const fileUrl = location;
+            const fileName = originalname;
+            console.log(fileName);
+            const thumbnailKey = `thumbnails/${key.split('.')[0]}.png`;
+            const thumbnailPath = `/tmp/${thumbnailKey}`;
+            console.log(thumbnailPath);
+            generateThumbnail(location, thumbnailPath)
+                .then(() => {
+                    const fileContent = fs.readFileSync(thumbnailPath);
+                    s3.upload({
+                        Bucket: outputBucketName,
+                        Key: thumbnailKey,
+                        Body: fileContent,
+                        ACL: 'public-read'
+                    }, (err, data) => {
+                        if (err) {
+                            return res.status(500).json({ error: err.message });
                         }
-                    );
+    
+                        connection.query('INSERT INTO tb_files (file_no, file_code, file_url, file_name, file_CDT, thumbnail_url) VALUES (?, ?, ?, ?, NOW(), ?)', 
+                            [fileNo, fileCode, fileUrl, fileName, data.Location], 
+                            (err, result) => {
+                                if (err) {
+                                    return res.status(500).json({ error: err.message });
+                                }
+                                fs.unlinkSync(thumbnailPath); // 임시 썸네일 파일 삭제
+                                res.status(200).json({ message: 'File uploaded and saved successfully', file: req.file, thumbnail: data.Location });
+                            }
+                        );
+                    });
+                })
+                .catch(err => {
+                    res.status(500).json({ error: err.message });
                 });
-            })
-            .catch(err => {
-                res.status(500).json({ error: err.message });
-            });
-    });
+        });
+    }
 });
 // 서명된 URL을 생성하는 GET 라우트
 app.get('/file-url/:key(*)', (req, res) => {
@@ -307,6 +333,37 @@ app.get('/board/detail/:boardNo', function (req, res, next) {
         res.json(results[0]);  // 결과를 JSON 형태로 반환합니다.
     });
 }); 
+
+// 아이템 삭제 API
+app.delete('/board/:boardNo', (req, res) => {
+    const { id } = req.params;
+
+    const query = 'DELETE FROM tb_board WHERE board_no = ?';
+    db.query(query, [boardNo], (err, result) => {
+        if (err) {
+            return res.status(400).json({ message: err.message });
+        }
+        res.status(200).json({ message: 'Item deleted successfully' });
+    });
+    let resFileCode = null;
+    connection.query(`SELECT F.file_code
+                        FROM tb_board B
+                        LEFT OUTER JOIN tb_files F
+                          ON B.file_code = F.file_code
+                       WHERE B.board_no = ?`, [boardNo], function(err, results, fields) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+            resFileCode = results[0].resFileCode;// 결과를 FileCode로 변환
+            const query = 'DELETE FROM tb_files WHERE file_code = ?';
+            db.query(query, [resFileCode], (err, result) => {
+                if (err) {
+                    return res.status(400).json({ message: err.message });
+                }
+                res.status(200).json({ message: 'Item deleted successfully' });
+            });
+        });
+});
 //--------------------------------------------------------------- 로그인 관련
 app.get('/authcheck', (req, res) => {     
     const sendData = { isLogin: "" };
